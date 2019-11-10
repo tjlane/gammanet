@@ -2,16 +2,29 @@
 
 from gammanet import models
 
+# -------------------------------
+# PARAMETERS
+
+nx, ny   = 32, 32    # image size
+n_train  = 100
+n_test   = 10
+
+
+
+
+
+# -------------------------------
+
+
+
+
+# -------------------------------
+
+
 model = models.ConvNet()
+loss  = models.photonloss
 
-# Loss and optimizer
-criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-
-
-total_step = len(train_loader)
-loss_list = []
-acc_list = []
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
 for epoch in range(num_epochs):
     for i, (images, labels) in enumerate(train_loader):
