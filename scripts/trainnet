@@ -7,19 +7,20 @@ from gammanet import utils
 # -------------------------------
 # PARAMETERS
 
-nx, ny   = 32, 32    # image size
-n_train  = 100
-n_test   = 10
+nx, ny        = 32, 32  # image size
+n_train       = 9000
+n_test        = 1000
 
-k_bar    = 0.01      # photons/px
-contrast = 0.9       # 
-corr_len = 0.2       # px
-sigma    = 2.0       # px
-epsilon_gain = 0.03  # adu
-epsilon_ped  = 0.05  # adu
+k_bar         = 0.01    # photons/px
+contrast      = 0.9     # 
+corr_len      = 0.2     # px
+sigma         = 2.0     # px
+epsilon_gain  = 0.03    # adu
+epsilon_ped   = 0.05    # adu
 
 max_n_photons = 128
 batch_size    = 128
+num_epochs    = 100
 
 # -------------------------------
 
@@ -32,10 +33,9 @@ test_loader  = utils.create_loader(*(n_test,)  + params)
 
 device = torch.device('cuda')
 
+model     = models.ConvNet(max_photons=max_n_photons)
+loss_fxn  = models.photon_loss
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-
-model    = models.ConvNet()
-loss_fxn = models.photonloss
 
 # -------------------------------
 
@@ -47,6 +47,7 @@ test_error  = []
 for epoch in range(num_epochs):
 
     epoch_train_error = 0.0
+    total_step = len(train_loader)
     for i, (images, labels) in enumerate(train_loader):
 
         images = images.to(device)
@@ -54,7 +55,7 @@ for epoch in range(num_epochs):
 
         # forward pass
         outputs = model(images)
-        loss = loss_fxn(outputs, labels)
+        loss = loss_fxn(labels, outputs)
         epoch_train_error += loss.item()
 
         # backprop 
@@ -62,14 +63,15 @@ for epoch in range(num_epochs):
         loss.backward()
         optimizer.step()
 
-        if (i + 1) % 100 == 0:
+        if (i + 1) % 10 == 0:
             print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
-                  .format(epoch + 1, num_epochs, i + 1, total_step, loss.item())
+                  .format(epoch + 1, num_epochs, i + 1, total_step, loss.item()))
 
-    train_error.append(epoch_train_error / float(i+1))
+    train_error.append(epoch_train_error / total_step) # divide by size of loader
 
 
     epoch_test_error = 0.0
+    total_step = len(train_loader)
     for j, (images, labels) in enumerate(test_loader):
 
         images = images.to(device)
@@ -78,15 +80,15 @@ for epoch in range(num_epochs):
         with torch.no_grad():
         
             outputs = model(images)
-            loss = loss_fxn(outputs, labels)
+            loss = loss_fxn(labels, outputs)
             epoch_test_error += loss.item()
 
-    test_error.append(epoch_test_error / float(i+1))
+    test_error.append(epoch_test_error / total_step) # divide by size of loader
 
 
 # save the following and analysis of the following
-print(test_error.cpu())
-print(train_error.cpu())
+#print(test_error)
+#print(train_error)
 # true/false pos/neg
 # the model :)
 

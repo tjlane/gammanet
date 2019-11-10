@@ -4,6 +4,7 @@ import torch
 
 from gammanet.simulate import sim_detector_image
 
+
 def create_loader(n_images, nx, ny,
                   k_bar, contrast, corr_len,
                   sigma, epsilon_gain, epsilon_ped,
@@ -20,8 +21,8 @@ def create_loader(n_images, nx, ny,
                                      sigma, epsilon_gain, epsilon_ped,
                                      nx=nx, ny=ny, return_centers=True)
 
-        images.append(torch.tensor(img))
-        padded_cs = np.zeros((max_n_photons, 2))
+        images.append(torch.tensor(img.astype(np.float32)))
+        padded_cs = -1 * np.ones((max_n_photons, 2), dtype=np.float32)
         padded_cs[:cs.shape[0],:] = cs
         centers.append(torch.tensor(padded_cs))
 
