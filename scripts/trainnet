@@ -1,0 +1,40 @@
+#!/usr/bin/env python
+
+from gammanet import models
+
+model = models.ConvNet()
+
+# Loss and optimizer
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+
+total_step = len(train_loader)
+loss_list = []
+acc_list = []
+
+for epoch in range(num_epochs):
+    for i, (images, labels) in enumerate(train_loader):
+
+        # Run the forward pass
+        outputs = model(images)
+        loss = criterion(outputs, labels)
+        loss_list.append(loss.item())
+
+        # Backprop and perform Adam optimisation
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # Track the accuracy
+        total = labels.size(0)
+        _, predicted = torch.max(outputs.data, 1)
+        correct = (predicted == labels).sum().item()
+        acc_list.append(correct / total)
+
+        if (i + 1) % 100 == 0:
+            print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Accuracy: {:.2f}%'
+                  .format(epoch + 1, num_epochs, i + 1, total_step, loss.item(),
+                          (correct / total) * 100))
+
+
