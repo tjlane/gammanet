@@ -2,6 +2,8 @@
 import torch
 from torch import nn
 
+import numpy as np
+
 
 class ConvNet(nn.Module):
 
@@ -27,33 +29,93 @@ class ConvNet(nn.Module):
         return
 
 
-	def forward(self, x):
-		out = self.layer1(x)
-		out = self.layer2(out)
-		out = out.reshape(out.size(0), -1)
-		out = self.drop_out(out)
-		out = self.fc1(out)
-		out = self.fc2(out)
+    def forward(self, x):
+        out = self.layer1(x)
+        out = self.layer2(out)
+        out = out.reshape(out.size(0), -1)
+        out = self.drop_out(out)
+        out = self.fc1(out)
+        out = self.fc2(out)
         out = out.reshape(-1, 3) # is_photon, x, y
         out[:,0] = torch.sigmoid(out[:,0])
-		return out
+        return out
 
 
 
-def photon_loss(ref, pred, class_weight=1.0):
+def photon_loss(labels, preds, confidence=0.9, class_weight=1.0):
     """
-    data are an N x 3 tensor
-      dim 0 : [0,1]    is it a photon?
-      dim 1 : [0,nx]   x-location
-      dim 2 : [0,ny]   y-location
+    preds is a (batches x N x 3) tensor
+      last index:
+        dim 0 : [0,1)    is it a photon?
+        dim 1 : [0,nx]   x-location
+        dim 2 : [0,ny]   y-location
+
+    labels only has dim 1 & 2, and may be a
+    different length!
     """
 
-    classification_loss = nn.functional.binary_cross_entropy(ref[:,0], pred[:,0], 
-                                                             reduction='mean')
-    position_loss       = nn.functional.mse_loss(ref[:,1:], pred[:,1:],
-                                                 reduction='mean')
+    # TODO : think about the right functional form for the loss
+    # right now it's just temporary
 
-    return classification_loss * class_weight + position_loss
+    pos_idx   = (preds[:,:,0] > confidence)
+    pos_preds = preds[:,:,1:] # could maybe slice out here
 
+    # assign photons to their closest label
+    #   >> all-to-other distance
+
+    n  = pos_preds.size(1)
+    m  = labels.size(1)
+    d1 = pos_preds.size(0)
+    d2 = pos_preds.size(2)
+
+    x = pos_preds.unsqueeze(1).expand(d1, n, m, d2)
+    y = labels.unsqueeze(2).expand(d1, n, m, d2)
+
+    dist = torch.pow(x - y, 2).sum(3) # CHANGE LAST
+
+    assert dist.shape == (d1, n, m)
+
+    # now take min(dist) to match
+    val, idx = dist.min(2)
+
+    # ^^^
+
+    distance_error = torch.sum(val[pos_idx])
+
+    return distance_error
+
+
+
+
+if __name__ == '__main__':
+
+    from gammanet.utils import create_loader
+
+    nx, ny   = 16, 16    # image size
+    n_train  = 16
+
+    k_bar    = 0.1       # photons/px
+    contrast = 0.9       # 
+    corr_len = 0.2       # px
+    sigma    = 2.0       # px
+    epsilon_gain = 0.03  # adu
+    epsilon_ped  = 0.05  # adu
+
+    max_n_photons = 128
+    batch_size    = 4
+
+    params = (nx, ny, k_bar, contrast, corr_len,
+              sigma, epsilon_gain, epsilon_ped,
+              max_n_photons, batch_size)
+
+    l = create_loader(*(n_train,) + params)
+
+    for i, (_, labels) in enumerate(l):
+
+        pi = np.random.permutation(labels.shape[0])
+        test_pred = labels[pi,:]
+        o = torch.ones(test_pred.shape[:2]+(1,), dtype=float)
+        test_pred = torch.cat([ o, test_pred ], 2)
+        print(photon_loss(labels, test_pred))
 
 

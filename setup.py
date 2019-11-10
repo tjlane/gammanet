@@ -8,7 +8,7 @@ dirname = os.path.dirname(__file__)
 
 setup(
     name='gammanet',
-    version=version,
+    version='0.1',
     author='Lane',
     author_email='thomas.joseph.lane@gmail.com',
     url='https://github.com/tjlane/gammanet',

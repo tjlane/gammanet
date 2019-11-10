@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
+import torch
 from gammanet import models
+from gammanet import utils
 
 # -------------------------------
 # PARAMETERS
@@ -9,45 +11,83 @@ nx, ny   = 32, 32    # image size
 n_train  = 100
 n_test   = 10
 
+k_bar    = 0.01      # photons/px
+contrast = 0.9       # 
+corr_len = 0.2       # px
+sigma    = 2.0       # px
+epsilon_gain = 0.03  # adu
+epsilon_ped  = 0.05  # adu
 
-
-
+max_n_photons = 128
+batch_size    = 128
 
 # -------------------------------
 
+params = (nx, ny, k_bar, contrast, corr_len,
+          sigma, epsilon_gain, epsilon_ped, 
+          max_n_photons, batch_size)
 
+train_loader = utils.create_loader(*(n_train,) + params)
+test_loader  = utils.create_loader(*(n_test,)  + params)
 
-
-# -------------------------------
-
-
-model = models.ConvNet()
-loss  = models.photonloss
+device = torch.device('cuda')
 
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
+model    = models.ConvNet()
+loss_fxn = models.photonloss
+
+# -------------------------------
+
+model.to(device)
+
+train_error = []
+test_error  = []
+
 for epoch in range(num_epochs):
+
+    epoch_train_error = 0.0
     for i, (images, labels) in enumerate(train_loader):
 
-        # Run the forward pass
-        outputs = model(images)
-        loss = criterion(outputs, labels)
-        loss_list.append(loss.item())
+        images = images.to(device)
+        labels = labels.to(device)
 
-        # Backprop and perform Adam optimisation
+        # forward pass
+        outputs = model(images)
+        loss = loss_fxn(outputs, labels)
+        epoch_train_error += loss.item()
+
+        # backprop 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        # Track the accuracy
-        total = labels.size(0)
-        _, predicted = torch.max(outputs.data, 1)
-        correct = (predicted == labels).sum().item()
-        acc_list.append(correct / total)
-
         if (i + 1) % 100 == 0:
-            print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Accuracy: {:.2f}%'
-                  .format(epoch + 1, num_epochs, i + 1, total_step, loss.item(),
-                          (correct / total) * 100))
+            print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
+                  .format(epoch + 1, num_epochs, i + 1, total_step, loss.item())
+
+    train_error.append(epoch_train_error / float(i+1))
+
+
+    epoch_test_error = 0.0
+    for j, (images, labels) in enumerate(test_loader):
+
+        images = images.to(device)
+        labels = labels.to(device)
+
+        with torch.no_grad():
+        
+            outputs = model(images)
+            loss = loss_fxn(outputs, labels)
+            epoch_test_error += loss.item()
+
+    test_error.append(epoch_test_error / float(i+1))
+
+
+# save the following and analysis of the following
+print(test_error.cpu())
+print(train_error.cpu())
+# true/false pos/neg
+# the model :)
 
 

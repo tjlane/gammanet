@@ -52,7 +52,10 @@ def charge_sharing(pn_list, corr_len, sigma, nx, ny, return_centers=False):
                 img += gaussian_2d(center, sigma, amplitude=1.0, nx=nx, ny=ny) 
     
     if return_centers:
-        return img, np.vstack(all_centers)
+        if len(all_centers) > 0:
+            return img, np.vstack(all_centers)
+        else:
+            return img, np.zeros((0,2))
     else:
         return img
 
@@ -103,9 +106,8 @@ def negative_binomial_samples(k_bar, contrast, size=1):
 def sim_detector_image(k_bar, contrast, corr_len, sigma, epsilon_gain, epsilon_ped, 
                        nx=528, ny=528, k_range=10, return_centers=False):
 
-    pn_list = negative_binomial_pmf(k_range, k_bar, contrast)
-    pn_list *= nx * ny * k_bar # pdf --> photons
-    pn_list = pn_list.astype(np.int)
+    p_bar = int(nx * ny * k_bar) # expected photons
+    pn_list = np.bincount(negative_binomial_samples(k_bar, contrast, size=p_bar))
 
     if return_centers:
         img, cs = charge_sharing(pn_list, corr_len, sigma, nx, ny,
