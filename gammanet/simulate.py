@@ -12,14 +12,14 @@ def generate_random_centers(n_photons, nx, ny):
     return np.vstack([cx1, cy1]).T
 
 
-def gaussian_2d(center, width, amplitude=1, nx=10, ny=10):
-    x = np.arange(0., nx, 1.)
+def gaussian_2d(center, sigma, amplitude=1, nx=10, ny=10):
+    x = np.arange(0., nx, 1.) #array from 0 to nx, separated by 1 
     y = np.arange(0., ny, 1.)
     xx, yy = np.meshgrid(x,y, sparse=True)
     gx = (xx-center[0])**2
     gy = (yy-center[1])**2
-    g = np.exp(-4*np.log(2)*(gx+gy)/width**2)
-    g /= np.max(g.flatten()) # or sum
+    g = (1/np.sqrt(2*np.pi*sigma**2))*np.exp(-(gx+gy)/(2*sigma**2))
+    g = g/np.sum(g)
     return g*amplitude
 
 
@@ -121,9 +121,24 @@ def sim_detector_image(k_bar, contrast, corr_len, sigma, epsilon_gain, epsilon_p
     img_n = img*gain + peds
 
     if return_centers:
-        return img_n, cs
+        return img_n, cs, pn_list
     else:
-        return img_n
+        return img_n, pn_list
+
+def trueNumPhotons(maxNum, pn_list):
+    #Function outputs the true number of photons in the image
+    #maxNum is just a large number 
+    #pn_list is a list which contains the number of one, two, three photon events 
+    out = [0] * maxNum # create a padding vector of 0s 
+    out[:len(pn_list)] = pn_list #pad pn_list with 0s up to maxNum 
+    mul = list(range(1, maxNum+1)) # each element of the list represents 1,2,3,4 photons etc 
+    numPhotons = np.dot(out, mul) 
+    return numPhotons
+
+def NumPhotonsImage(img, amplitude):
+    #Function outputs the estimated number of photons from image sum 
+    estimatedPhotonCount = np.sum(img)/amplitude
+    return estimatedPhotonCount
 
 
 if __name__ == '__main__':
@@ -132,7 +147,10 @@ if __name__ == '__main__':
     k_bar    = 0.01      # photons/px
     contrast = 0.9       # 
     corr_len = 0.2       # px
-    sigma    = 2.0       # px
+    #sigma    = 2.0       # px
+    sigma = 1.0 #seems to reproduce visuals of older code 
+    amplitude = 4.0 
+
     epsilon_gain = 0.03  # adu
     epsilon_ped  = 0.05  # adu
 
